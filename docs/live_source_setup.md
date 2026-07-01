@@ -16,6 +16,10 @@ Setup-Pruefung.
 Ohne echte Quelle bleibt der Status bewusst `missing`. Das ist kein Fehler,
 sondern Schutz vor Schein-Live-Daten.
 
+`KAS_WEBHOOK_BRIDGE_EVENTS_URL` und `CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL`
+gelten als Konfigurations-Fallback fuer Kurse und Orders. Live wird die Quelle
+aber erst, wenn der jeweilige Puller frische Preis- oder Trade-Events schreibt.
+
 ## Aktuell angelegte lokale Anschluesse
 
 Die vier Pflichtanschluesse sind lokal vorbereitet und in `.env` eingetragen:
@@ -56,7 +60,16 @@ python3 tools/run_configured_live_adapters.py --interval-seconds 5
 python3 tools/run_live_bridge_inbox.py --interval-seconds 1
 ```
 
-5. Portal oeffnen:
+5. Optional feste TradingView-HTTPS-Inbox per Cloudflare Worker starten:
+
+```bash
+python3 tools/pull_cloudflare_worker_bridge.py --interval-seconds 3
+```
+
+Voraussetzung: Worker nach `docs/cloudflare_worker_bridge_setup.md` deployen
+und `CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL` in `.env` setzen.
+
+6. Portal oeffnen:
 
 ```text
 http://127.0.0.1:5173/

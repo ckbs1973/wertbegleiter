@@ -1,4 +1,6 @@
 .env
+deploy/cloudflare_worker_bridge/wrangler.toml
+deploy/cloudflare_worker_bridge/.wrangler/
 .venv/
 __pycache__/
 *.py[cod]

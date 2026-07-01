@@ -99,6 +99,14 @@ python3 tools/check_tradingview_webhook_setup.py
 python3 tools/check_infrastructure_readiness.py --check-public-health
 ```
 
+Stand 2026-07-01: Die Bridge-Dateien liegen auf dem KAS-Webspace unter
+`/wertbegleiter.eu/wb-bridge/`. Der HTTP-Healthcheck liefert `status=ok`.
+HTTPS liefert jedoch das ALL-INKL-Standardzertifikat `*.kasserver.com`, weil
+der aktuelle Tarif im KAS unter `SSL-Schutz` die Meldung `Ressourcenlimit
+erreicht` zeigt. Fuer TradingView-Daily-Use bleibt deshalb HTTPS ein harter
+Blocker, bis entweder SSL bei ALL-INKL freigeschaltet wird oder die
+Cloudflare-Nameserver/DNS-Route fuer den Named Tunnel aktiv sind.
+
 Bei aktiver KAS Bridge ist Cloudflare nicht mehr Pflicht. Der Healthcheck nutzt
 die oeffentliche Webhook-Domain. Wenn KAS erreichbar ist, aber noch keine
 TradingView Alerts gesendet wurden, bleibt der Live-Status bewusst teilweise

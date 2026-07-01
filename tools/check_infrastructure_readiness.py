@@ -26,6 +26,23 @@ from check_tradingview_webhook_setup import readiness_payload as tradingview_rea
 
 
 DEFAULT_ENV_PATH = ROOT / ".env"
+NODE_HEALTHCHECK_SCRIPT = """
+const url = process.argv[1];
+const timeoutMs = Number(process.argv[2] || 5000);
+const controller = new AbortController();
+const timer = setTimeout(() => controller.abort(), timeoutMs);
+fetch(url, { signal: controller.signal })
+  .then(async (response) => {
+    clearTimeout(timer);
+    const body = (await response.text()).slice(0, 1000);
+    console.log(JSON.stringify({ statusCode: response.status, ok: response.ok, body }));
+  })
+  .catch((error) => {
+    clearTimeout(timer);
+    console.error(error && error.message ? error.message : String(error));
+    process.exit(1);
+  });
+""".strip()
 CLOUDFLARE_CERT_PATHS = (
     Path.home() / ".cloudflared" / "cert.pem",
     Path.home() / ".cloudflare-warp" / "cert.pem",
@@ -131,7 +148,11 @@ def public_health_url_from_webhook(value: str) -> str:
     parsed = urlsplit(value.strip())
     if parsed.scheme != "https" or not parsed.netloc:
         return ""
-    return urlunsplit((parsed.scheme, parsed.netloc, "/health", "", ""))
+    health_path = "/health"
+    if "/tv/" in parsed.path:
+        base_path = parsed.path.split("/tv/", 1)[0].rstrip("/")
+        health_path = f"{base_path}/health" if base_path else "/health"
+    return urlunsplit((parsed.scheme, parsed.netloc, health_path, "", ""))
 
 
 def http_health_status(url: str, *, timeout: int = 5) -> dict[str, Any]:
@@ -142,7 +163,11 @@ def http_health_status(url: str, *, timeout: int = 5) -> dict[str, Any]:
             body = response.read(1000).decode("utf-8", errors="replace")
             ok = 200 <= response.status < 300
     except (OSError, URLError) as exc:
-        return {"status": "unreachable", "url": mask_remote_url(url), "message": str(exc), "information_only": True}
+        fallback = node_health_status(url, timeout=timeout)
+        if fallback["status"] != "unreachable":
+            fallback["python_message"] = str(exc)
+            return fallback
+        return {"status": "unreachable", "url": mask_remote_url(url), "message": str(exc), "node_fallback": fallback, "information_only": True}
     return {
         "status": "ok" if ok else "error",
         "url": mask_remote_url(url),
@@ -151,7 +176,36 @@ def http_health_status(url: str, *, timeout: int = 5) -> dict[str, Any]:
     }
 
 
-def kas_bridge_status(env: dict[str, str]) -> dict[str, Any]:
+def node_health_status(url: str, *, timeout: int = 5) -> dict[str, Any]:
+    result = run_command(["node", "-e", NODE_HEALTHCHECK_SCRIPT, url, str(timeout * 1000)], timeout=timeout + 2)
+    if not result["ok"]:
+        return {
+            "status": "unreachable",
+            "url": mask_remote_url(url),
+            "message": result["stderr"] or result["stdout"] or "Node health fallback failed.",
+            "information_only": True,
+        }
+    try:
+        payload = json.loads(result["stdout"])
+    except json.JSONDecodeError:
+        return {
+            "status": "unreachable",
+            "url": mask_remote_url(url),
+            "message": "Node health fallback did not return JSON.",
+            "information_only": True,
+        }
+    status_code = int(payload.get("statusCode", 0) or 0)
+    return {
+        "status": "ok" if 200 <= status_code < 300 else "error",
+        "url": mask_remote_url(url),
+        "message": str(payload.get("body", "")),
+        "status_code": status_code,
+        "fallback": "node_fetch",
+        "information_only": True,
+    }
+
+
+def kas_bridge_status(env: dict[str, str], *, check_health: bool = False) -> dict[str, Any]:
     """Report whether a KAS/ALL-INKL webhook bridge is configured."""
 
     events_url = str(env.get("KAS_WEBHOOK_BRIDGE_EVENTS_URL", "")).strip()
@@ -165,15 +219,60 @@ def kas_bridge_status(env: dict[str, str]) -> dict[str, Any]:
         }
     parsed = urlsplit(events_url)
     valid = parsed.scheme == "https" and bool(parsed.netloc) and "/tv/" in parsed.path and parsed.path.rstrip("/").endswith("/events")
+    health = (
+        http_health_status(public_health_url_from_webhook(events_url))
+        if check_health and valid
+        else {"status": "skipped", "message": "KAS Healthcheck nicht angefordert.", "information_only": True}
+    )
+    health_ok = health["status"] == "ok" if check_health and valid else True
     return {
-        "status": "configured" if valid else "invalid",
-        "configured": valid,
+        "status": "configured" if valid and health_ok else "health_unreachable" if valid else "invalid",
+        "configured": valid and health_ok,
         "events_url": mask_webhook_url(events_url),
         "message": (
             "KAS Webhook Bridge ist als dauerhafte HTTPS-Alternative konfiguriert."
+            if valid and health_ok
+            else "KAS Webhook Bridge ist formal gesetzt, aber der HTTPS-Healthcheck ist nicht erreichbar."
             if valid
             else "KAS_WEBHOOK_BRIDGE_EVENTS_URL muss eine HTTPS-URL mit /tv/<token>/events sein."
         ),
+        "health": health,
+        "information_only": True,
+    }
+
+
+def cloudflare_worker_bridge_status(env: dict[str, str], *, check_health: bool = False) -> dict[str, Any]:
+    """Report whether a Cloudflare Worker webhook bridge is configured."""
+
+    events_url = str(env.get("CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL", "")).strip()
+    if not events_url:
+        return {
+            "status": "not_configured",
+            "configured": False,
+            "events_url": "",
+            "message": "Cloudflare Worker Bridge ist nicht gesetzt.",
+            "information_only": True,
+        }
+    parsed = urlsplit(events_url)
+    valid = parsed.scheme == "https" and bool(parsed.netloc) and "/tv/" in parsed.path and parsed.path.rstrip("/").endswith("/events")
+    health = (
+        http_health_status(public_health_url_from_webhook(events_url))
+        if check_health and valid
+        else {"status": "skipped", "message": "Worker Healthcheck nicht angefordert.", "information_only": True}
+    )
+    health_ok = health["status"] == "ok" if check_health and valid else True
+    return {
+        "status": "configured" if valid and health_ok else "health_unreachable" if valid else "invalid",
+        "configured": valid and health_ok,
+        "events_url": mask_webhook_url(events_url),
+        "message": (
+            "Cloudflare Worker Bridge ist als feste workers.dev-HTTPS-Inbox konfiguriert."
+            if valid and health_ok
+            else "Cloudflare Worker Bridge ist formal gesetzt, aber der HTTPS-Healthcheck ist nicht erreichbar."
+            if valid
+            else "CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL muss eine HTTPS-URL mit /tv/<token>/events sein."
+        ),
+        "health": health,
         "information_only": True,
     }
 
@@ -201,15 +300,23 @@ def infrastructure_payload(
     )
     git = git_status()
     cloudflare = cloudflare_auth_status()
-    kas_bridge = kas_bridge_status(env)
-    cloudflare_required = not kas_bridge["configured"]
+    kas_bridge = kas_bridge_status(env, check_health=check_public_health)
+    worker_bridge = cloudflare_worker_bridge_status(env, check_health=check_public_health)
+    fixed_bridge_configured = bool(kas_bridge["configured"] or worker_bridge["configured"])
+    cloudflare_required = not fixed_bridge_configured
     blockers = []
     if not git["remote_ready"]:
         blockers.append("GitHub Remote/Upstream fehlt.")
     if cloudflare_required and cloudflare["status"] != "authenticated":
         blockers.append("Dauerhafter Cloudflare Named Tunnel ist noch nicht authentifiziert.")
-    if kas_bridge["status"] == "invalid":
+    if kas_bridge["status"] == "invalid" and not worker_bridge["configured"]:
         blockers.append("KAS Webhook Bridge ist ungueltig konfiguriert.")
+    if kas_bridge["status"] == "health_unreachable" and not worker_bridge["configured"]:
+        blockers.append("KAS Webhook Bridge ist gesetzt, aber HTTPS-Healthcheck ist nicht erreichbar.")
+    if worker_bridge["status"] == "invalid" and not kas_bridge["configured"]:
+        blockers.append("Cloudflare Worker Bridge ist ungueltig konfiguriert.")
+    if worker_bridge["status"] == "health_unreachable" and not kas_bridge["configured"]:
+        blockers.append("Cloudflare Worker Bridge ist gesetzt, aber HTTPS-Healthcheck ist nicht erreichbar.")
     if tradingview["status"] != "ready_for_tradingview":
         blockers.append("TradingView Public Webhooks sind noch nicht bereit.")
     if check_public_health and public_health["status"] != "ok":
@@ -221,15 +328,20 @@ def infrastructure_payload(
         "git": git,
         "cloudflare": cloudflare,
         "kas_bridge": kas_bridge,
+        "cloudflare_worker_bridge": worker_bridge,
         "tradingview_webhooks": tradingview,
         "public_health": public_health,
         "blockers": blockers,
         "next_steps": [
             "GitHub Remote setzen und pushen." if not git["remote_ready"] else "Git Remote regelmaessig pushen.",
-            "KAS Bridge oder Cloudflare Named Tunnel als feste HTTPS-Bruecke konfigurieren."
+            "Cloudflare Worker Bridge per workers.dev nutzen oder KAS HTTPS-Zertifikat aktivieren."
+            if kas_bridge["status"] == "health_unreachable"
+            else "Cloudflare Worker Bridge, KAS Bridge oder Cloudflare Named Tunnel als feste HTTPS-Bruecke konfigurieren."
             if cloudflare_required and cloudflare["status"] != "authenticated"
-            else "KAS Bridge Puller oder Named Tunnel im Tagesstart mitlaufen lassen.",
-            "TradingView Alerts mit Public-Webhook-URLs anlegen/testen."
+            else "Worker-/KAS-Bridge-Puller oder Named Tunnel im Tagesstart mitlaufen lassen.",
+            "Erst nach erfolgreichem HTTPS-Healthcheck TradingView Alerts mit Public-Webhook-URLs anlegen/testen."
+            if check_public_health and public_health["status"] != "ok"
+            else "TradingView Alerts mit Public-Webhook-URLs anlegen/testen."
             if tradingview["status"] == "ready_for_tradingview"
             else "TradingView Gateway/Tunnel/Webhook-URLs vervollstaendigen.",
         ],

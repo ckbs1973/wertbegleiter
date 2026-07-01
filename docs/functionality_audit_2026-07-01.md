@@ -24,14 +24,15 @@ Das ist kein kosmetischer Fehler, sondern ein korrekter Sicherheitsblocker. Ohne
 | Frontend | Laeuft | `http://127.0.0.1:5173/` liefert HTTP 200; Vite-Prozess hoert auf Port 5173. |
 | Backend/API | Laeuft | `http://127.0.0.1:8000/api/health` liefert `{"status":"ok","live_trading_enabled":false}`. |
 | Realtime-Update-Service | Laeuft | `tools/run_realtime_update_service.py` schreibt Feed und Live-Status laufend neu. |
-| Unit-/Integrationstests | Bestanden | `python3 -m pytest`: 96 passed. |
+| Unit-/Integrationstests | Bestanden | `PYTHONPATH=src python3 -m pytest`: 112 passed. |
 | Frontend-Lint | Bestanden | `npm run lint`: Frontend structure OK. |
 | Frontend-Build | Bestanden | `npm run build`: Vite Build erfolgreich. |
 | Browser-Navigation | Bestanden | Heute, Pruefen, Live & News, Journal, Trades, Review, Hilfe oeffnen. |
 | Browser-Fehlersymptome | Keine gefunden | Keine sichtbaren `NaN` oder `undefined` in den geprueften Seiten. |
 | Go-Live Panel | Bestanden | Startseite zeigt Live-Quellen, Update-Stand, Echtjournal und Testmodus als harte Statuskacheln. |
 | Live-Anschlusspfad | Bestanden | Button `Anschlussplan` oeffnet Live & News, klappt Details auf und springt zum Anschlussplan fuer Live-Quellen. |
-| TradingView-Webhooks | Bereit fuer TradingView | Lokale Endpunkte, token-geschuetztes Gateway, Cloudflare-HTTPS-Tunnel und JSON-Templates sind aktiv; TradingView Alerts muessen im TradingView UI noch mit den Public-URLs angelegt werden. |
+| TradingView-Webhooks | Formal bereit, HTTPS extern blockiert | Lokale Endpunkte, token-geschuetztes Gateway und JSON-Templates sind aktiv; der externe KAS-HTTPS-Healthcheck scheitert am Zertifikat fuer `wertbegleiter.eu`. |
+| Cloudflare Worker Bridge | Deployt und getestet | `https://wertbegleiter-trading-bridge.wertbegleiter.workers.dev/health` liefert `status=ok`; Smoke-Test-Heartbeat wurde gespeichert und lokal verarbeitet. |
 | Journal-Bereinigung | Vorhanden | Trades-Seite bietet Backup-Export, Echtjournal-Start und Sandbox-Testmodus. Bereinigung archiviert statt zu loeschen. |
 | Journal-Dateisync | Vorhanden | Mit laufendem Backend kann das Portal Journal-Drafts nach `reports/journal_live_store.json` speichern und daraus laden. |
 | Betriebs-Runbook | Vorhanden | `docs/operations_runbook.md` beschreibt Start, Tagesprozess, Journal-Sicherung, Review und Go-Live-Grenze. |
@@ -82,17 +83,21 @@ Diese Punkte muessen geloest sein, bevor das Tool als echtes Tages-Trading-Syste
    - `LIVE_PRICE_JSON_PATH` oder `TRADINGVIEW_BRIDGE_URL`
    - `LIVE_ORDER_JSON_PATH` oder `BROKER_EVENT_STREAM_URL`
    - `LIVE_CALENDAR_JSON_PATH` oder `ECONOMIC_CALENDAR_API_URL`
-2. TradingView Alerts im TradingView UI mit den registrierten Public-Webhook-URLs anlegen:
+2. Eine oeffentlich erreichbare HTTPS-Bridge aktivieren:
+   - bevorzugt: Cloudflare Worker Bridge ueber `workers.dev` - Status: erledigt
+   - alternativ: KAS-SSL fuer `wertbegleiter.eu` aktivieren
+   - alternativ: Cloudflare Named Tunnel mit aktiver DNS-/Nameserver-Route
+3. TradingView Alerts im TradingView UI mit den registrierten Public-Webhook-URLs anlegen:
    - `TRADINGVIEW_WEBHOOK_PUBLIC_PRICE_URL`
    - `TRADINGVIEW_WEBHOOK_PUBLIC_TRADE_URL`
-3. TradingView/Broker-Orderquelle live testen, damit offene und geschlossene Trades automatisch in Journal/Review laufen.
-4. Wirtschaftskalender anbinden, damit CPI, NFP, Zinsentscheidungen und Hochrisiko-Events nicht manuell uebersehen werden.
-5. Optional schnelleren News-/Squawk-/X-Pro-Feed setzen, falls der ForexLive/InvestingLive RSS-Fallback fuer Sekundenhandel nicht ausreicht.
-6. Taegliche ChatGPT-Projektupdates exportieren oder durch einen echten Feed ersetzen. Der Pflicht-Chat-Stand 24.06.2026 ist fuer 01.07.2026 nur historischer Kontext.
-7. Persistenz klaeren: Browser-LocalStorage reicht fuer Test/Paper nicht als langfristiges Echtgeld-Journal. Status: lokale JSON-Dateispeicherung mit Backup ist vorhanden; DB/Cloud-Backup bleibt optionaler Ausbau.
-8. Sandbox-Testmodus ergaenzen, damit Buttons wie Reset, Start, Abschluss, Export und Bild-Upload automatisiert getestet werden koennen, ohne echte Journal-Daten zu veraendern.
+4. TradingView/Broker-Orderquelle live testen, damit offene und geschlossene Trades automatisch in Journal/Review laufen.
+5. Wirtschaftskalender anbinden, damit CPI, NFP, Zinsentscheidungen und Hochrisiko-Events nicht manuell uebersehen werden.
+6. Optional schnelleren News-/Squawk-/X-Pro-Feed setzen, falls der ForexLive/InvestingLive RSS-Fallback fuer Sekundenhandel nicht ausreicht.
+7. Taegliche ChatGPT-Projektupdates exportieren oder durch einen echten Feed ersetzen. Der Pflicht-Chat-Stand 24.06.2026 ist fuer 01.07.2026 nur historischer Kontext.
+8. Persistenz klaeren: Browser-LocalStorage reicht fuer Test/Paper nicht als langfristiges Echtgeld-Journal. Status: lokale JSON-Dateispeicherung mit Backup ist vorhanden; DB/Cloud-Backup bleibt optionaler Ausbau.
+9. Sandbox-Testmodus ergaenzen, damit Buttons wie Reset, Start, Abschluss, Export und Bild-Upload automatisiert getestet werden koennen, ohne echte Journal-Daten zu veraendern.
 
-Status 01.07.2026: Der Sandbox-Testmodus ist eingebaut. Das lokale `cloudflared`-Binary ist vorhanden, das TradingView-Gateway ist als schmale Schutzschicht umgesetzt und `tools/check_tradingview_webhook_setup.py` meldet `ready_for_tradingview`, solange Gateway und Tunnel laufen. Vollautomatische Button-End-to-End-Tests fuer Reset, Abschluss, Upload und Export bleiben als naechster Testausbau offen.
+Status 01.07.2026: Der Sandbox-Testmodus ist eingebaut. Das lokale `cloudflared`-Binary ist vorhanden, das TradingView-Gateway ist als schmale Schutzschicht umgesetzt und `tools/check_tradingview_webhook_setup.py` meldet formal `ready_for_tradingview`. Der externe `--check-public-health` ist mit der Cloudflare Worker Bridge `ready`; der alte KAS-Pfad bleibt wegen Zertifikats-Mismatch nur historischer Fallback. Vollautomatische Button-End-to-End-Tests fuer Reset, Abschluss, Upload und Export bleiben als naechster Testausbau offen.
 
 ## Sinnvolle Erweiterungen
 
@@ -141,6 +146,7 @@ npm run lint
 npm run build
 python3 -m pytest
 PYTHONPYCACHEPREFIX=/private/tmp/codex_pycache python3 -m compileall src tests tools
+npm --prefix deploy/cloudflare_worker_bridge run check
 curl -sI http://127.0.0.1:5173/
 lsof -nP -iTCP:5173 -sTCP:LISTEN
 lsof -nP -iTCP:8000 -sTCP:LISTEN
@@ -153,4 +159,5 @@ lsof -nP -iTCP:8000 -sTCP:LISTEN
 3. Persistente Journal-Speicherung ausserhalb von LocalStorage einbauen.
 4. Sandbox-Testmodus fuer alle Buttons und Upload-Flows bauen.
 5. Benchmarkbereich in Live & News / Heute ergaenzen.
-6. Danach TradingView/Broker-Order-Bridge read-only anbinden.
+6. TradingView Alerts im TradingView UI auf die Worker-URLs umstellen und mit Preis-/Trade-Events testen.
+7. Danach TradingView/Broker-Order-Bridge read-only anbinden.

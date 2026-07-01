@@ -66,6 +66,20 @@ class LiveConfigTests(unittest.TestCase):
         self.assertEqual(news_adapter["location_kind"], "url")
         self.assertEqual(news_adapter["location_masked"], "https://investinglive.com/feed/")
 
+    def test_worker_bridge_marks_price_and_order_configured(self):
+        status = adapter_config_status(
+            {"CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL": "https://worker.example/tv/token/events"},
+            env_file_exists=True,
+        )
+
+        price_adapter = next(item for item in status["adapters"] if item["env_key"] == "LIVE_PRICE_JSON_PATH")
+        order_adapter = next(item for item in status["adapters"] if item["env_key"] == "LIVE_ORDER_JSON_PATH")
+        self.assertEqual(price_adapter["status"], "configured")
+        self.assertEqual(order_adapter["status"], "configured")
+        self.assertEqual(price_adapter["configured_env_key"], "CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL")
+        self.assertEqual(order_adapter["configured_env_key"], "CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL")
+        self.assertEqual(status["missing_count"], 2)
+
     def test_url_masking_removes_query_string(self):
         masked = masked_location("https://example.test/feed.xml?token=secret")
 

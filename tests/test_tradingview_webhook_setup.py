@@ -13,6 +13,7 @@ from register_tradingview_public_webhooks import (
     kas_events_endpoint_from_base,
     register_public_webhooks,
     update_env_text,
+    worker_events_endpoint_from_base,
 )
 from run_tradingview_webhook_gateway import gateway_path_for, route_kind_from_path, target_url_for
 
@@ -122,6 +123,10 @@ class TradingViewWebhookSetupTests(unittest.TestCase):
             kas_events_endpoint_from_base("https://example.test/wb-bridge", TOKEN),
             f"https://example.test/wb-bridge/tv/{TOKEN}/events",
         )
+        self.assertEqual(
+            worker_events_endpoint_from_base("https://example.worker.dev", TOKEN),
+            f"https://example.worker.dev/tv/{TOKEN}/events",
+        )
 
     def test_update_env_text_replaces_existing_keys_and_appends_missing(self):
         result = update_env_text(
@@ -146,6 +151,7 @@ class TradingViewWebhookSetupTests(unittest.TestCase):
                 price_url=f"https://example.test/tv/{TOKEN}/price",
                 trade_url=f"https://example.test/tv/{TOKEN}/trade",
                 kas_events_url=f"https://example.test/tv/{TOKEN}/events",
+                worker_events_url=f"https://worker.example/tv/{TOKEN}/events",
             )
             text = env_file.read_text(encoding="utf-8")
 
@@ -153,9 +159,11 @@ class TradingViewWebhookSetupTests(unittest.TestCase):
         self.assertIn(f"TRADINGVIEW_WEBHOOK_PUBLIC_PRICE_URL=https://example.test/tv/{TOKEN}/price", text)
         self.assertIn(f"TRADINGVIEW_WEBHOOK_PUBLIC_TRADE_URL=https://example.test/tv/{TOKEN}/trade", text)
         self.assertIn(f"KAS_WEBHOOK_BRIDGE_EVENTS_URL=https://example.test/tv/{TOKEN}/events", text)
+        self.assertIn(f"CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL=https://worker.example/tv/{TOKEN}/events", text)
         self.assertEqual(payload["public_endpoints"]["price"], "https://example.test/tv/.../price")
         self.assertEqual(payload["public_endpoints"]["trade"], "https://example.test/tv/.../trade")
         self.assertEqual(payload["public_endpoints"]["kas_events"], "https://example.test/tv/.../events")
+        self.assertEqual(payload["public_endpoints"]["cloudflare_worker_events"], "https://worker.example/tv/.../events")
         self.assertIn("keine Orderausfuehrung", payload["disclaimer"])
 
 

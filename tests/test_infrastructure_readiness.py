@@ -8,10 +8,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
 from check_infrastructure_readiness import (
     cloudflare_auth_status,
+    cloudflare_worker_bridge_status,
     infrastructure_payload,
     kas_bridge_status,
     mask_remote_url,
     mask_webhook_url,
+    node_health_status,
     public_health_url_from_webhook,
 )
 
@@ -102,11 +104,98 @@ class InfrastructureReadinessTests(unittest.TestCase):
         self.assertEqual(payload["kas_bridge"]["status"], "configured")
         self.assertNotIn("Dauerhafter Cloudflare Named Tunnel ist noch nicht authentifiziert.", payload["blockers"])
 
+    def test_worker_bridge_can_replace_cloudflare_requirement(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            token = "abcdefghijklmnopqrstuvwxyz123456"
+            env_file = Path(tmp) / ".env"
+            env_file.write_text(
+                "\n".join(
+                    [
+                        "TRADINGVIEW_WEBHOOK_LOCAL_PRICE_URL=http://127.0.0.1:8000/api/live-bridge/ingest",
+                        "TRADINGVIEW_WEBHOOK_LOCAL_TRADE_URL=http://127.0.0.1:8000/api/trade-events/capture",
+                        f"TRADINGVIEW_WEBHOOK_PUBLIC_PRICE_URL=https://worker.example/tv/{token}/price",
+                        f"TRADINGVIEW_WEBHOOK_PUBLIC_TRADE_URL=https://worker.example/tv/{token}/trade",
+                        f"CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL=https://worker.example/tv/{token}/events",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with patch(
+                "check_infrastructure_readiness.git_status",
+                return_value={"remote_ready": True, "status": "ready", "information_only": True},
+            ), patch(
+                "check_infrastructure_readiness.cloudflare_auth_status",
+                return_value={"status": "login_required", "information_only": True},
+            ):
+                payload = infrastructure_payload(env_file=env_file)
+
+        self.assertEqual(payload["cloudflare_worker_bridge"]["status"], "configured")
+        self.assertNotIn("Dauerhafter Cloudflare Named Tunnel ist noch nicht authentifiziert.", payload["blockers"])
+
     def test_kas_bridge_status_requires_events_route(self):
         status = kas_bridge_status({"KAS_WEBHOOK_BRIDGE_EVENTS_URL": "https://wertbegleiter.eu/wb/tv/token/price"})
 
         self.assertEqual(status["status"], "invalid")
         self.assertTrue(status["information_only"])
+
+    def test_worker_bridge_status_requires_events_route(self):
+        status = cloudflare_worker_bridge_status({"CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL": "https://worker.example/tv/token/price"})
+
+        self.assertEqual(status["status"], "invalid")
+        self.assertTrue(status["information_only"])
+
+    def test_node_health_status_parses_fallback_result(self):
+        with patch(
+            "check_infrastructure_readiness.run_command",
+            return_value={
+                "ok": True,
+                "stdout": '{"statusCode":200,"ok":true,"body":"{\\"status\\":\\"ok\\"}"}',
+                "stderr": "",
+                "returncode": 0,
+            },
+        ):
+            status = node_health_status("https://worker.example/health")
+
+        self.assertEqual(status["status"], "ok")
+        self.assertEqual(status["fallback"], "node_fetch")
+        self.assertEqual(status["status_code"], 200)
+
+    def test_worker_bridge_health_can_supersede_broken_kas_bridge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            token = "abcdefghijklmnopqrstuvwxyz123456"
+            env_file = Path(tmp) / ".env"
+            env_file.write_text(
+                "\n".join(
+                    [
+                        "TRADINGVIEW_WEBHOOK_LOCAL_PRICE_URL=http://127.0.0.1:8000/api/live-bridge/ingest",
+                        "TRADINGVIEW_WEBHOOK_LOCAL_TRADE_URL=http://127.0.0.1:8000/api/trade-events/capture",
+                        f"TRADINGVIEW_WEBHOOK_PUBLIC_PRICE_URL=https://worker.example/tv/{token}/price",
+                        f"TRADINGVIEW_WEBHOOK_PUBLIC_TRADE_URL=https://worker.example/tv/{token}/trade",
+                        f"KAS_WEBHOOK_BRIDGE_EVENTS_URL=https://broken.example/tv/{token}/events",
+                        f"CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL=https://worker.example/tv/{token}/events",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            def fake_health(url):
+                if "worker.example" in url:
+                    return {"status": "ok", "url": url, "message": "ok", "information_only": True}
+                return {"status": "unreachable", "url": url, "message": "broken", "information_only": True}
+
+            with patch(
+                "check_infrastructure_readiness.git_status",
+                return_value={"remote_ready": True, "status": "ready", "information_only": True},
+            ), patch(
+                "check_infrastructure_readiness.cloudflare_auth_status",
+                return_value={"status": "login_required", "information_only": True},
+            ), patch("check_infrastructure_readiness.http_health_status", side_effect=fake_health):
+                payload = infrastructure_payload(env_file=env_file, check_public_health=True)
+
+        self.assertEqual(payload["cloudflare_worker_bridge"]["status"], "configured")
+        self.assertEqual(payload["kas_bridge"]["status"], "health_unreachable")
+        self.assertNotIn("KAS Webhook Bridge ist gesetzt, aber HTTPS-Healthcheck ist nicht erreichbar.", payload["blockers"])
 
 
 if __name__ == "__main__":

@@ -54,6 +54,7 @@ Das Daily Board ist fuer den taeglichen Workflow vor und waehrend der US-Session
 - TradingView-Webhook-Setup: `tools/check_tradingview_webhook_setup.py` prueft lokale Webhook-Ziele, Public-/Tunnel-URLs, Tunnel-Tool und JSON-valide Alert-Templates. TradingView braucht fuer echte Zustellung eine oeffentliche HTTPS-URL auf Port 443.
 - TradingView-Gateway: `tools/run_tradingview_webhook_gateway.py` stellt nur zwei token-geschuetzte POST-Routen bereit: `/tv/<token>/price` und `/tv/<token>/trade`. Das Gateway leitet intern an die lokale API weiter und fuehrt keine Orders aus.
 - ALL-INKL/KAS-Webhook-Bridge: `deploy/kas_webhook_bridge` kann ohne Cloudflare auf dem KAS-Webspace laufen. `tools/pull_kas_webhook_bridge.py` holt gespeicherte Events lokal ab, aktualisiert Live-Status und schreibt Trade-Events in `reports/journal_live_store.json`.
+- Cloudflare-Worker-Bridge: `deploy/cloudflare_worker_bridge` stellt eine feste `workers.dev`-HTTPS-Inbox bereit, ohne ALL-INKL-SSL oder Nameserver-Umstellung. `tools/pull_cloudflare_worker_bridge.py` holt gespeicherte Events lokal ab und nutzt denselben sicheren Journal-Lifecycle.
 - TradingView-Public-URL registrieren: `tools/register_tradingview_public_webhooks.py --base-url https://dein-tunnel.example` schreibt die token-geschuetzten Preis- und Trade-Webhook-Ziele sicher in `.env`, ohne Live-Trading zu aktivieren.
 - Das Frontend laedt lokale Testimporte aus `frontend/public/data/`: rekonstruierte TradingView/GBE-Trades, GBE-Monatsberichte und den letzten EOD-Report. Diese Eintraege sind als `Review offen` markiert, bis die TradingFreaks-Pflichtfelder manuell ergaenzt wurden.
 
@@ -79,6 +80,7 @@ Das Portal unterscheidet zwischen `aktualisiert geladen` und `sekundenfrisch`.
 - Provider-Anschlussstatus und Payload-Beispiele: [`docs/provider_connections.md`](docs/provider_connections.md).
 - Kompakter Anschlussplan fuer den Echtgeldbetrieb: [`docs/live_source_setup.md`](docs/live_source_setup.md).
 - Dauerhafter TradingView-Webhooks-Tunnel: [`docs/permanent_tunnel_setup.md`](docs/permanent_tunnel_setup.md).
+- Cloudflare Worker Bridge ueber `workers.dev`: [`docs/cloudflare_worker_bridge_setup.md`](docs/cloudflare_worker_bridge_setup.md).
 - Cloudflare-freie ALL-INKL/KAS-Webhook-Bridge: [`docs/kas_webhook_bridge_setup.md`](docs/kas_webhook_bridge_setup.md).
 - Git-/Remote-Setup: [`docs/git_setup.md`](docs/git_setup.md).
 - Aktueller Go-Live-Audit mit Funktionsstatus, Blockern und Erweiterungen: [`docs/functionality_audit_2026-07-01.md`](docs/functionality_audit_2026-07-01.md).
@@ -167,6 +169,20 @@ deployt und `KAS_WEBHOOK_BRIDGE_EVENTS_URL` in `.env` gesetzt ist. Der Puller
 holt gespeicherte TradingView-Events ab, schreibt Preis-/Order-Heartbeats und
 uebernimmt Trade-Open/-Close-Events in den lokalen Journal-Store.
 
+Cloudflare-Worker-Pfad ohne eigene Domain-Umstellung:
+
+```bash
+python3 tools/register_tradingview_public_webhooks.py \
+  --base-url https://wertbegleiter-trading-bridge.wertbegleiter.workers.dev \
+  --worker-bridge
+python3 tools/pull_cloudflare_worker_bridge.py --interval-seconds 3
+```
+
+Voraussetzung ist, dass `deploy/cloudflare_worker_bridge` mit KV-Binding
+`EVENTS` und Secret `TRADINGVIEW_WEBHOOK_TOKEN` deployt wurde. Der Worker
+speichert nur TradingView-Fakten; der lokale Puller schreibt daraus
+Live-Status und Journal-Drafts.
+
 Infrastruktur-Readiness pruefen:
 
 ```bash
@@ -174,8 +190,8 @@ python3 tools/check_infrastructure_readiness.py --check-public-health
 ```
 
 Fuer Daily Use muss ein Git Remote gesetzt sein und der temporaere
-`trycloudflare.com`-Tunnel durch einen Named Tunnel oder eine andere feste
-HTTPS-Bridge ersetzt werden.
+`trycloudflare.com`-Tunnel durch eine Cloudflare Worker Bridge, einen Named
+Tunnel oder eine andere feste HTTPS-Bridge ersetzt werden.
 
 Aktueller Named Tunnel: `wertbegleiter-trading` auf
 `trading-webhooks.wertbegleiter.eu`. Cloudflare ist vorbereitet; produktive

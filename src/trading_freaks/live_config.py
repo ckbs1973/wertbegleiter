@@ -29,6 +29,8 @@ PATH_LIKE_ENV_KEYS = frozenset(
         "SEEKING_ALPHA_NEWS_URL",
         "KAS_WEBHOOK_BRIDGE_EVENTS_URL",
         "KAS_WEBHOOK_BRIDGE_CURSOR_PATH",
+        "CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL",
+        "CLOUDFLARE_WORKER_BRIDGE_CURSOR_PATH",
     }
 )
 
@@ -50,7 +52,7 @@ REQUIRED_LIVE_ADAPTERS: tuple[RequiredLiveAdapter, ...] = (
         category="price",
         stale_after_seconds=5,
         purpose="Realtime-Kurse oder lokaler Preis-Heartbeat",
-        fallback_env_keys=("TRADINGVIEW_BRIDGE_URL",),
+        fallback_env_keys=("TRADINGVIEW_BRIDGE_URL", "KAS_WEBHOOK_BRIDGE_EVENTS_URL", "CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL"),
     ),
     RequiredLiveAdapter(
         env_key="LIVE_ORDER_JSON_PATH",
@@ -58,7 +60,7 @@ REQUIRED_LIVE_ADAPTERS: tuple[RequiredLiveAdapter, ...] = (
         category="order",
         stale_after_seconds=5,
         purpose="Offene und geschlossene Trades fuer den Journal-Lifecycle",
-        fallback_env_keys=("BROKER_EVENT_STREAM_URL",),
+        fallback_env_keys=("BROKER_EVENT_STREAM_URL", "KAS_WEBHOOK_BRIDGE_EVENTS_URL", "CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL"),
     ),
     RequiredLiveAdapter(
         env_key="LIVE_CALENDAR_JSON_PATH",

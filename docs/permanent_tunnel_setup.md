@@ -12,6 +12,21 @@ keine Orderfreigabe und keine Broker-Orderausfuehrung.
 
 ## Zielarchitektur
 
+Empfohlener Weg ohne Nameserver-Umstellung:
+
+```text
+TradingView Alert
+  -> https://<worker>.<account>.workers.dev/tv/<token>/price
+  -> Cloudflare Worker Bridge + KV
+  -> lokaler Puller
+  -> Live-Status und Journal-Store
+```
+
+Dieser Weg braucht kein ALL-INKL-SSL und keine Cloudflare-Nameserver fuer
+`wertbegleiter.eu`.
+
+Named-Tunnel-Weg mit eigener Subdomain:
+
 ```text
 TradingView Alert
   -> https://trading-webhooks.wertbegleiter.eu/tv/<token>/price
@@ -144,6 +159,9 @@ Wirtschaftskalender live angebunden ist.
 
 ## Alternativen ohne eigene Cloudflare-Domain
 
+- Cloudflare Worker Bridge ueber `workers.dev`. Das ist der bevorzugte Weg,
+  wenn keine Nameserver-Umstellung gewuenscht ist. Setup:
+  `docs/cloudflare_worker_bridge_setup.md`.
 - Weiterhin temporaerer Quick-Tunnel fuer Tests, aber keine stabile URL fuer
   TradingView.
 - ALL-INKL/KAS Webhook Bridge ueber `deploy/kas_webhook_bridge`, wenn die

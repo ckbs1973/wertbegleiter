@@ -60,13 +60,13 @@ def load_cursor(path: Path) -> int:
     return max(0, int(payload.get("last_sequence", 0) or 0))
 
 
-def save_cursor(path: Path, sequence: int) -> None:
+def save_cursor(path: Path, sequence: int, *, source: str = "kas_webhook_bridge") -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
             {
                 "last_sequence": max(0, int(sequence)),
-                "source": "kas_webhook_bridge",
+                "source": source,
                 "information_only": True,
             },
             ensure_ascii=False,
@@ -108,6 +108,8 @@ def pull_once(
     journal_store_path: Path,
     limit: int,
     timeout_seconds: float,
+    bridge_name: str = "KAS Bridge Pull",
+    cursor_source: str = "kas_webhook_bridge",
 ) -> dict[str, Any]:
     since = load_cursor(cursor_path)
     payload = fetch_kas_events(events_url, since=since, limit=limit, timeout_seconds=timeout_seconds)
@@ -123,7 +125,7 @@ def pull_once(
     )
     sequences = [int(record.get("sequence", 0) or 0) for record in records if isinstance(record, dict)]
     if sequences:
-        save_cursor(cursor_path, max(sequences))
+        save_cursor(cursor_path, max(sequences), source=cursor_source)
 
     return {
         "status": "processed",
@@ -139,7 +141,7 @@ def pull_once(
             }
             for item in results
         ],
-        "disclaimer": "KAS Bridge Pull, keine Anlageberatung und keine Orderausfuehrung.",
+        "disclaimer": f"{bridge_name}, keine Anlageberatung und keine Orderausfuehrung.",
         "information_only": True,
     }
 

@@ -20,8 +20,8 @@ Der Gesamtstatus bleibt deshalb `partly_live`, nicht `second_fresh`.
 
 | Pflichtquelle | Primaerer Slot | Provider-Fallbacks |
 |---|---|---|
-| Kurse | `LIVE_PRICE_JSON_PATH` | `TRADINGVIEW_BRIDGE_URL` |
-| Orders | `LIVE_ORDER_JSON_PATH` | `BROKER_EVENT_STREAM_URL` |
+| Kurse | `LIVE_PRICE_JSON_PATH` | `TRADINGVIEW_BRIDGE_URL`, `KAS_WEBHOOK_BRIDGE_EVENTS_URL`, `CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL` |
+| Orders | `LIVE_ORDER_JSON_PATH` | `BROKER_EVENT_STREAM_URL`, `KAS_WEBHOOK_BRIDGE_EVENTS_URL`, `CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL` |
 | Kalender | `LIVE_CALENDAR_JSON_PATH` | `ECONOMIC_CALENDAR_API_URL` |
 | News | `LIVE_NEWS_FEED_URL` | `NEWSQUAWK_API_URL`, `X_PRO_LIST_URL`, `FOREXLIVE_RSS_URL`, `SEEKING_ALPHA_NEWS_URL` |
 
@@ -50,6 +50,18 @@ TRADINGVIEW_WEBHOOK_PUBLIC_TRADE_URL=https://dein-tunnel.example/tv/<token>/trad
 
 5. TradingView Alert-Webhooks nur mit Marktdaten senden, keine Login-Daten und
    keine Secrets.
+
+Wenn keine eigene Domain oder kein ALL-INKL-SSL genutzt werden soll, ist die
+Cloudflare Worker Bridge der einfachste feste HTTPS-Weg:
+
+```bash
+python3 tools/register_tradingview_public_webhooks.py \
+  --base-url https://wertbegleiter-trading-bridge.wertbegleiter.workers.dev \
+  --worker-bridge
+python3 tools/pull_cloudflare_worker_bridge.py --interval-seconds 3
+```
+
+Details: `docs/cloudflare_worker_bridge_setup.md`.
 
 Lokale Ziele sind bereits angelegt:
 

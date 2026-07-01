@@ -48,6 +48,10 @@ def kas_events_endpoint_from_base(base_url: str, token: str) -> str:
     return endpoint_from_base(base_url, f"{price_path.rsplit('/', 1)[0]}/events")
 
 
+def worker_events_endpoint_from_base(base_url: str, token: str) -> str:
+    return kas_events_endpoint_from_base(base_url, token)
+
+
 def update_env_text(text: str, updates: dict[str, str]) -> str:
     seen: set[str] = set()
     lines = []
@@ -78,6 +82,7 @@ def register_public_webhooks(
     price_url: str,
     trade_url: str,
     kas_events_url: str = "",
+    worker_events_url: str = "",
     dry_run: bool = False,
 ) -> dict[str, object]:
     price_ok, price_message = public_webhook_url_check(price_url)
@@ -100,6 +105,8 @@ def register_public_webhooks(
     }
     if kas_events_url:
         updates["KAS_WEBHOOK_BRIDGE_EVENTS_URL"] = kas_events_url
+    if worker_events_url:
+        updates["CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL"] = worker_events_url
     new_text = update_env_text(original, updates)
     if not dry_run:
         env_file.write_text(new_text, encoding="utf-8")
@@ -111,6 +118,7 @@ def register_public_webhooks(
             "price": masked_location(price_url),
             "trade": masked_location(trade_url),
             "kas_events": masked_location(kas_events_url) if kas_events_url else "",
+            "cloudflare_worker_events": masked_location(worker_events_url) if worker_events_url else "",
         },
         "next_step": "python3 tools/check_tradingview_webhook_setup.py ausfuehren und TradingView Alerts testen.",
         "disclaimer": "Konfiguration-only, keine Anlageberatung und keine Orderausfuehrung.",
@@ -126,6 +134,11 @@ def main() -> int:
     parser.add_argument("--price-url", default="")
     parser.add_argument("--trade-url", default="")
     parser.add_argument("--kas-bridge", action="store_true", help="Also register KAS_WEBHOOK_BRIDGE_EVENTS_URL at /tv/<token>/events")
+    parser.add_argument(
+        "--worker-bridge",
+        action="store_true",
+        help="Also register CLOUDFLARE_WORKER_BRIDGE_EVENTS_URL at /tv/<token>/events",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -142,12 +155,14 @@ def main() -> int:
         trade_url = args.trade_url.strip()
         token = args.token.strip() or str(load_gateway_config(args.env_file).get("token", "")).strip()
     kas_events_url = kas_events_endpoint_from_base(args.base_url, token) if args.kas_bridge and args.base_url else ""
+    worker_events_url = worker_events_endpoint_from_base(args.base_url, token) if args.worker_bridge and args.base_url else ""
 
     payload = register_public_webhooks(
         env_file=args.env_file,
         price_url=price_url,
         trade_url=trade_url,
         kas_events_url=kas_events_url,
+        worker_events_url=worker_events_url,
         dry_run=args.dry_run,
     )
     print(json.dumps(payload, indent=2, ensure_ascii=False))

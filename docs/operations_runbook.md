@@ -67,6 +67,17 @@ Dieser Quick-Tunnel ist nur temporaer. Fuer Daily Use ist ein Cloudflare Named
 Tunnel oder eine andere feste HTTPS-Bridge noetig. Ablauf:
 [`docs/permanent_tunnel_setup.md`](permanent_tunnel_setup.md).
 
+Empfohlene feste HTTPS-Bridge ohne Nameserver-Umstellung:
+
+```bash
+python3 tools/register_tradingview_public_webhooks.py \
+  --base-url https://wertbegleiter-trading-bridge.wertbegleiter.workers.dev \
+  --worker-bridge
+python3 tools/pull_cloudflare_worker_bridge.py --interval-seconds 3
+```
+
+Setup: [`docs/cloudflare_worker_bridge_setup.md`](cloudflare_worker_bridge_setup.md).
+
 Wenn der Tunnel eine Public-Base-URL liefert:
 
 ```bash

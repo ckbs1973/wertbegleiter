@@ -31,7 +31,7 @@ Das ist kein kosmetischer Fehler, sondern ein korrekter Sicherheitsblocker. Ohne
 | Browser-Fehlersymptome | Keine gefunden | Keine sichtbaren `NaN` oder `undefined` in den geprueften Seiten. |
 | Go-Live Panel | Bestanden | Startseite zeigt Live-Quellen, Update-Stand, Echtjournal und Testmodus als harte Statuskacheln. |
 | Live-Anschlusspfad | Bestanden | Button `Anschlussplan` oeffnet Live & News, klappt Details auf und springt zum Anschlussplan fuer Live-Quellen. |
-| TradingView-Webhooks | Gateway vorbereitet | Lokale Endpunkte, token-geschuetztes Gateway und JSON-Templates vorhanden; Public-HTTPS-/Tunnel-URL fehlt noch. |
+| TradingView-Webhooks | Bereit fuer TradingView | Lokale Endpunkte, token-geschuetztes Gateway, Cloudflare-HTTPS-Tunnel und JSON-Templates sind aktiv; TradingView Alerts muessen im TradingView UI noch mit den Public-URLs angelegt werden. |
 | Journal-Bereinigung | Vorhanden | Trades-Seite bietet Backup-Export, Echtjournal-Start und Sandbox-Testmodus. Bereinigung archiviert statt zu loeschen. |
 | Journal-Dateisync | Vorhanden | Mit laufendem Backend kann das Portal Journal-Drafts nach `reports/journal_live_store.json` speichern und daraus laden. |
 | Betriebs-Runbook | Vorhanden | `docs/operations_runbook.md` beschreibt Start, Tagesprozess, Journal-Sicherung, Review und Go-Live-Grenze. |
@@ -82,17 +82,17 @@ Diese Punkte muessen geloest sein, bevor das Tool als echtes Tages-Trading-Syste
    - `LIVE_PRICE_JSON_PATH` oder `TRADINGVIEW_BRIDGE_URL`
    - `LIVE_ORDER_JSON_PATH` oder `BROKER_EVENT_STREAM_URL`
    - `LIVE_CALENDAR_JSON_PATH` oder `ECONOMIC_CALENDAR_API_URL`
-2. Public-HTTPS-Tunnel fuer TradingView-Webhooks ausschliesslich auf das Gateway `http://127.0.0.1:8787` einrichten und in `.env` setzen:
+2. TradingView Alerts im TradingView UI mit den registrierten Public-Webhook-URLs anlegen:
    - `TRADINGVIEW_WEBHOOK_PUBLIC_PRICE_URL`
    - `TRADINGVIEW_WEBHOOK_PUBLIC_TRADE_URL`
-3. TradingView/Broker-Orderquelle anbinden, damit offene und geschlossene Trades automatisch in Journal/Review laufen.
+3. TradingView/Broker-Orderquelle live testen, damit offene und geschlossene Trades automatisch in Journal/Review laufen.
 4. Wirtschaftskalender anbinden, damit CPI, NFP, Zinsentscheidungen und Hochrisiko-Events nicht manuell uebersehen werden.
 5. Optional schnelleren News-/Squawk-/X-Pro-Feed setzen, falls der ForexLive/InvestingLive RSS-Fallback fuer Sekundenhandel nicht ausreicht.
-5. Taegliche ChatGPT-Projektupdates exportieren oder durch einen echten Feed ersetzen. Der Pflicht-Chat-Stand 24.06.2026 ist fuer 01.07.2026 nur historischer Kontext.
-6. Persistenz klaeren: Browser-LocalStorage reicht fuer Test/Paper nicht als langfristiges Echtgeld-Journal. Status: lokale JSON-Dateispeicherung mit Backup ist vorhanden; DB/Cloud-Backup bleibt optionaler Ausbau.
-7. Sandbox-Testmodus ergaenzen, damit Buttons wie Reset, Start, Abschluss, Export und Bild-Upload automatisiert getestet werden koennen, ohne echte Journal-Daten zu veraendern.
+6. Taegliche ChatGPT-Projektupdates exportieren oder durch einen echten Feed ersetzen. Der Pflicht-Chat-Stand 24.06.2026 ist fuer 01.07.2026 nur historischer Kontext.
+7. Persistenz klaeren: Browser-LocalStorage reicht fuer Test/Paper nicht als langfristiges Echtgeld-Journal. Status: lokale JSON-Dateispeicherung mit Backup ist vorhanden; DB/Cloud-Backup bleibt optionaler Ausbau.
+8. Sandbox-Testmodus ergaenzen, damit Buttons wie Reset, Start, Abschluss, Export und Bild-Upload automatisiert getestet werden koennen, ohne echte Journal-Daten zu veraendern.
 
-Status 01.07.2026: Der Sandbox-Testmodus ist eingebaut. Das lokale `cloudflared`-Binary ist vorhanden und das TradingView-Gateway ist als schmale Schutzschicht umgesetzt. Vollautomatische Button-End-to-End-Tests fuer Reset, Abschluss, Upload und Export bleiben als naechster Testausbau offen.
+Status 01.07.2026: Der Sandbox-Testmodus ist eingebaut. Das lokale `cloudflared`-Binary ist vorhanden, das TradingView-Gateway ist als schmale Schutzschicht umgesetzt und `tools/check_tradingview_webhook_setup.py` meldet `ready_for_tradingview`, solange Gateway und Tunnel laufen. Vollautomatische Button-End-to-End-Tests fuer Reset, Abschluss, Upload und Export bleiben als naechster Testausbau offen.
 
 ## Sinnvolle Erweiterungen
 

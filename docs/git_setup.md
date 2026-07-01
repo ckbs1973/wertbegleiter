@@ -39,6 +39,25 @@ git remote add origin <repo-url>
 git push -u origin main
 ```
 
+Aktueller Stand:
+
+- Lokales Repository: vorhanden
+- Branch: `main`
+- Initiale Commits: vorhanden
+- Remote `origin`: noch nicht gesetzt
+- `gh` CLI: auf diesem Mac aktuell nicht installiert
+
+Wenn bereits ein GitHub-Repository existiert, reicht die HTTPS- oder SSH-URL,
+z. B.:
+
+```bash
+git remote add origin git@github.com:<owner>/<repo>.git
+git push -u origin main
+```
+
+Wenn noch kein Repository existiert, zuerst in GitHub ein privates Repository
+anlegen, z. B. `wertbegleiter-kapitalmarkt`, und danach die Remote-URL setzen.
+
 Vor einem Push muss geprueft werden, dass `.env`, Brokerdaten, Reports,
 Screenshots und lokale TradingView-Tunnel-Token nicht im Commit enthalten sind.
 

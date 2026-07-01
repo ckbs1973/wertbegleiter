@@ -48,6 +48,7 @@ TradingView-Webhooks vorbereiten oder pruefen:
 
 ```bash
 python3 tools/check_tradingview_webhook_setup.py
+python3 tools/check_infrastructure_readiness.py --check-public-health
 ```
 
 Sicheres TradingView-Gateway starten:
@@ -61,6 +62,10 @@ HTTPS-Tunnel nur auf das Gateway, nicht auf die komplette API, zeigen lassen:
 ```bash
 tools/bin/cloudflared tunnel --url http://127.0.0.1:8787 --no-autoupdate
 ```
+
+Dieser Quick-Tunnel ist nur temporaer. Fuer Daily Use ist ein Cloudflare Named
+Tunnel oder eine andere feste HTTPS-Bridge noetig. Ablauf:
+[`docs/permanent_tunnel_setup.md`](permanent_tunnel_setup.md).
 
 Wenn der Tunnel eine Public-Base-URL liefert:
 

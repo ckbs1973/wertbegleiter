@@ -77,6 +77,8 @@ Das Portal unterscheidet zwischen `aktualisiert geladen` und `sekundenfrisch`.
 - Finales Betriebs-Runbook fuer Start, Tagesprozess, Journal-Sicherung und Go-Live-Grenze: [`docs/operations_runbook.md`](docs/operations_runbook.md).
 - Provider-Anschlussstatus und Payload-Beispiele: [`docs/provider_connections.md`](docs/provider_connections.md).
 - Kompakter Anschlussplan fuer den Echtgeldbetrieb: [`docs/live_source_setup.md`](docs/live_source_setup.md).
+- Dauerhafter TradingView-Webhooks-Tunnel: [`docs/permanent_tunnel_setup.md`](docs/permanent_tunnel_setup.md).
+- Git-/Remote-Setup: [`docs/git_setup.md`](docs/git_setup.md).
 - Aktueller Go-Live-Audit mit Funktionsstatus, Blockern und Erweiterungen: [`docs/functionality_audit_2026-07-01.md`](docs/functionality_audit_2026-07-01.md).
 
 Immer-aktuell-Dienst lokal starten:
@@ -148,6 +150,16 @@ python3 tools/register_tradingview_public_webhooks.py --base-url https://dein-tu
 TradingView bekommt danach nur die beiden Gateway-URLs `/tv/<token>/price`
 und `/tv/<token>/trade`. Die komplette lokale API wird nicht als Public-URL
 registriert.
+
+Infrastruktur-Readiness pruefen:
+
+```bash
+python3 tools/check_infrastructure_readiness.py --check-public-health
+```
+
+Fuer Daily Use muss ein Git Remote gesetzt sein und der temporaere
+`trycloudflare.com`-Tunnel durch einen Named Tunnel oder eine andere feste
+HTTPS-Bridge ersetzt werden.
 
 Beispiel fuer einen externen Preis-Heartbeat:
 

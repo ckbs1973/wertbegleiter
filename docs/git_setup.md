@@ -44,19 +44,33 @@ Aktueller Stand:
 - Lokales Repository: vorhanden
 - Branch: `main`
 - Initiale Commits: vorhanden
-- Remote `origin`: noch nicht gesetzt
+- Remote `origin`: `https://github.com/ckbs1973/wertbegleiter.git`
+- Upstream/Push: noch nicht abgeschlossen, weil das lokale Terminal noch keine GitHub-Credentials hat
 - `gh` CLI: auf diesem Mac aktuell nicht installiert
 
-Wenn bereits ein GitHub-Repository existiert, reicht die HTTPS- oder SSH-URL,
-z. B.:
+Das GitHub-Repository existiert und ist erreichbar:
+
+```text
+https://github.com/ckbs1973/wertbegleiter
+```
+
+Push per HTTPS braucht auf diesem Mac noch eine GitHub-Authentifizierung, z. B.
+ueber GitHub Desktop, Git Credential Manager, `gh auth login` oder einen
+Personal Access Token im lokalen Credential Store. Der Token gehoert nicht in
+`.env`, nicht in Git und nicht in diese Doku.
+
+Alternativ kann ein SSH-Key erstellt und bei GitHub hinterlegt werden. Danach:
 
 ```bash
-git remote add origin git@github.com:<owner>/<repo>.git
+git remote set-url origin git@github.com:ckbs1973/wertbegleiter.git
 git push -u origin main
 ```
 
-Wenn noch kein Repository existiert, zuerst in GitHub ein privates Repository
-anlegen, z. B. `wertbegleiter-kapitalmarkt`, und danach die Remote-URL setzen.
+Wenn HTTPS genutzt wird, bleibt:
+
+```bash
+git push -u origin main
+```
 
 Vor einem Push muss geprueft werden, dass `.env`, Brokerdaten, Reports,
 Screenshots und lokale TradingView-Tunnel-Token nicht im Commit enthalten sind.

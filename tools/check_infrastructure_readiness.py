@@ -83,17 +83,22 @@ def git_status(root: Path = ROOT) -> dict[str, Any]:
     head = run_command(["git", "rev-parse", "--short", "HEAD"], cwd=root)
     porcelain = run_command(["git", "status", "--short"], cwd=root)
     origin = run_command(["git", "remote", "get-url", "origin"], cwd=root)
+    upstream = run_command(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], cwd=root)
     remote_url = mask_remote_url(origin["stdout"]) if origin["ok"] else ""
     dirty_lines = [line for line in porcelain["stdout"].splitlines() if line.strip()]
+    upstream_name = upstream["stdout"] if upstream["ok"] else ""
+    remote_ready = bool(remote_url and upstream_name)
     return {
-        "status": "ready" if remote_url and not dirty_lines else "local_only" if not remote_url else "dirty",
+        "status": "ready" if remote_ready and not dirty_lines else "remote_without_upstream" if remote_url and not upstream_name else "local_only" if not remote_url else "dirty",
         "inside_work_tree": True,
         "branch": branch["stdout"],
         "head": head["stdout"],
         "dirty_count": len(dirty_lines),
-        "remote_ready": bool(remote_url),
+        "remote_configured": bool(remote_url),
+        "remote_ready": remote_ready,
         "origin": remote_url,
-        "message": "Remote fehlt." if not remote_url else "Git Remote ist gesetzt.",
+        "upstream": upstream_name,
+        "message": "Remote fehlt." if not remote_url else "Remote ist gesetzt, aber Push/Upstream fehlt." if not upstream_name else "Git Remote und Upstream sind gesetzt.",
         "information_only": True,
     }
 
@@ -159,7 +164,7 @@ def infrastructure_payload(
     cloudflare = cloudflare_auth_status()
     blockers = []
     if not git["remote_ready"]:
-        blockers.append("GitHub/Remote fehlt.")
+        blockers.append("GitHub Remote/Upstream fehlt.")
     if cloudflare["status"] != "authenticated":
         blockers.append("Dauerhafter Cloudflare Named Tunnel ist noch nicht authentifiziert.")
     if tradingview["status"] != "ready_for_tradingview":

@@ -27,6 +27,8 @@ PATH_LIKE_ENV_KEYS = frozenset(
         "NEWSQUAWK_API_URL",
         "X_PRO_LIST_URL",
         "SEEKING_ALPHA_NEWS_URL",
+        "KAS_WEBHOOK_BRIDGE_EVENTS_URL",
+        "KAS_WEBHOOK_BRIDGE_CURSOR_PATH",
     }
 )
 

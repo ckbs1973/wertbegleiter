@@ -68,6 +68,16 @@ def mask_remote_url(value: str) -> str:
     return urlunsplit((parsed.scheme, netloc, parsed.path, "", ""))
 
 
+def mask_webhook_url(value: str) -> str:
+    text = mask_remote_url(value)
+    parsed = urlsplit(text)
+    parts = parsed.path.split("/")
+    for idx, part in enumerate(parts):
+        if part == "tv" and idx + 2 < len(parts):
+            parts[idx + 1] = "..."
+    return urlunsplit((parsed.scheme, parsed.netloc, "/".join(parts), "", ""))
+
+
 def git_status(root: Path = ROOT) -> dict[str, Any]:
     inside = run_command(["git", "rev-parse", "--is-inside-work-tree"], cwd=root)
     if not inside["ok"] or inside["stdout"] != "true":
@@ -141,6 +151,33 @@ def http_health_status(url: str, *, timeout: int = 5) -> dict[str, Any]:
     }
 
 
+def kas_bridge_status(env: dict[str, str]) -> dict[str, Any]:
+    """Report whether a KAS/ALL-INKL webhook bridge is configured."""
+
+    events_url = str(env.get("KAS_WEBHOOK_BRIDGE_EVENTS_URL", "")).strip()
+    if not events_url:
+        return {
+            "status": "not_configured",
+            "configured": False,
+            "events_url": "",
+            "message": "KAS Webhook Bridge ist nicht gesetzt.",
+            "information_only": True,
+        }
+    parsed = urlsplit(events_url)
+    valid = parsed.scheme == "https" and bool(parsed.netloc) and "/tv/" in parsed.path and parsed.path.rstrip("/").endswith("/events")
+    return {
+        "status": "configured" if valid else "invalid",
+        "configured": valid,
+        "events_url": mask_webhook_url(events_url),
+        "message": (
+            "KAS Webhook Bridge ist als dauerhafte HTTPS-Alternative konfiguriert."
+            if valid
+            else "KAS_WEBHOOK_BRIDGE_EVENTS_URL muss eine HTTPS-URL mit /tv/<token>/events sein."
+        ),
+        "information_only": True,
+    }
+
+
 def infrastructure_payload(
     *,
     env_file: Path = DEFAULT_ENV_PATH,
@@ -148,10 +185,12 @@ def infrastructure_payload(
 ) -> dict[str, Any]:
     tradingview = tradingview_readiness_payload(env_file=env_file)
     public_price = ""
+    env: dict[str, str] = {}
     try:
         from trading_freaks.live_config import load_env_file
 
-        public_price = load_env_file(env_file).get("TRADINGVIEW_WEBHOOK_PUBLIC_PRICE_URL", "")
+        env = load_env_file(env_file)
+        public_price = env.get("TRADINGVIEW_WEBHOOK_PUBLIC_PRICE_URL", "")
     except (OSError, ImportError):
         public_price = ""
 
@@ -162,11 +201,15 @@ def infrastructure_payload(
     )
     git = git_status()
     cloudflare = cloudflare_auth_status()
+    kas_bridge = kas_bridge_status(env)
+    cloudflare_required = not kas_bridge["configured"]
     blockers = []
     if not git["remote_ready"]:
         blockers.append("GitHub Remote/Upstream fehlt.")
-    if cloudflare["status"] != "authenticated":
+    if cloudflare_required and cloudflare["status"] != "authenticated":
         blockers.append("Dauerhafter Cloudflare Named Tunnel ist noch nicht authentifiziert.")
+    if kas_bridge["status"] == "invalid":
+        blockers.append("KAS Webhook Bridge ist ungueltig konfiguriert.")
     if tradingview["status"] != "ready_for_tradingview":
         blockers.append("TradingView Public Webhooks sind noch nicht bereit.")
     if check_public_health and public_health["status"] != "ok":
@@ -177,12 +220,15 @@ def infrastructure_payload(
         "disclaimer": "Infrastrukturpruefung, keine Anlageberatung, keine Orderausfuehrung.",
         "git": git,
         "cloudflare": cloudflare,
+        "kas_bridge": kas_bridge,
         "tradingview_webhooks": tradingview,
         "public_health": public_health,
         "blockers": blockers,
         "next_steps": [
             "GitHub Remote setzen und pushen." if not git["remote_ready"] else "Git Remote regelmaessig pushen.",
-            "Cloudflare Named Tunnel Login/Config einrichten." if cloudflare["status"] != "authenticated" else "Named Tunnel Config und DNS-Route pruefen.",
+            "KAS Bridge oder Cloudflare Named Tunnel als feste HTTPS-Bruecke konfigurieren."
+            if cloudflare_required and cloudflare["status"] != "authenticated"
+            else "KAS Bridge Puller oder Named Tunnel im Tagesstart mitlaufen lassen.",
             "TradingView Alerts mit Public-Webhook-URLs anlegen/testen."
             if tradingview["status"] == "ready_for_tradingview"
             else "TradingView Gateway/Tunnel/Webhook-URLs vervollstaendigen.",

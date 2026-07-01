@@ -10,6 +10,7 @@ from check_tradingview_webhook_setup import public_webhook_url_check, readiness_
 from register_tradingview_public_webhooks import (
     endpoint_from_base,
     gateway_endpoints_from_base,
+    kas_events_endpoint_from_base,
     register_public_webhooks,
     update_env_text,
 )
@@ -117,6 +118,10 @@ class TradingViewWebhookSetupTests(unittest.TestCase):
 
         self.assertEqual(price, f"https://example.trycloudflare.com/tv/{TOKEN}/price")
         self.assertEqual(trade, f"https://example.trycloudflare.com/tv/{TOKEN}/trade")
+        self.assertEqual(
+            kas_events_endpoint_from_base("https://example.test/wb-bridge", TOKEN),
+            f"https://example.test/wb-bridge/tv/{TOKEN}/events",
+        )
 
     def test_update_env_text_replaces_existing_keys_and_appends_missing(self):
         result = update_env_text(
@@ -140,14 +145,17 @@ class TradingViewWebhookSetupTests(unittest.TestCase):
                 env_file=env_file,
                 price_url=f"https://example.test/tv/{TOKEN}/price",
                 trade_url=f"https://example.test/tv/{TOKEN}/trade",
+                kas_events_url=f"https://example.test/tv/{TOKEN}/events",
             )
             text = env_file.read_text(encoding="utf-8")
 
         self.assertEqual(payload["status"], "registriert")
         self.assertIn(f"TRADINGVIEW_WEBHOOK_PUBLIC_PRICE_URL=https://example.test/tv/{TOKEN}/price", text)
         self.assertIn(f"TRADINGVIEW_WEBHOOK_PUBLIC_TRADE_URL=https://example.test/tv/{TOKEN}/trade", text)
+        self.assertIn(f"KAS_WEBHOOK_BRIDGE_EVENTS_URL=https://example.test/tv/{TOKEN}/events", text)
         self.assertEqual(payload["public_endpoints"]["price"], "https://example.test/tv/.../price")
         self.assertEqual(payload["public_endpoints"]["trade"], "https://example.test/tv/.../trade")
+        self.assertEqual(payload["public_endpoints"]["kas_events"], "https://example.test/tv/.../events")
         self.assertIn("keine Orderausfuehrung", payload["disclaimer"])
 
 

@@ -53,6 +53,7 @@ Das Daily Board ist fuer den taeglichen Workflow vor und waehrend der US-Session
 - TradingView-macOS-Capture: `tools/capture_tradingview_event.py` aktiviert die lokale TradingView-App, erstellt optional einen Screenshot des sichtbaren Charts und erzeugt ein Journal-Event-JSON fuer den Frontend-Import. Das Tool liest keine Orders aus TradingView und fuehrt keine Orders aus.
 - TradingView-Webhook-Setup: `tools/check_tradingview_webhook_setup.py` prueft lokale Webhook-Ziele, Public-/Tunnel-URLs, Tunnel-Tool und JSON-valide Alert-Templates. TradingView braucht fuer echte Zustellung eine oeffentliche HTTPS-URL auf Port 443.
 - TradingView-Gateway: `tools/run_tradingview_webhook_gateway.py` stellt nur zwei token-geschuetzte POST-Routen bereit: `/tv/<token>/price` und `/tv/<token>/trade`. Das Gateway leitet intern an die lokale API weiter und fuehrt keine Orders aus.
+- ALL-INKL/KAS-Webhook-Bridge: `deploy/kas_webhook_bridge` kann ohne Cloudflare auf dem KAS-Webspace laufen. `tools/pull_kas_webhook_bridge.py` holt gespeicherte Events lokal ab, aktualisiert Live-Status und schreibt Trade-Events in `reports/journal_live_store.json`.
 - TradingView-Public-URL registrieren: `tools/register_tradingview_public_webhooks.py --base-url https://dein-tunnel.example` schreibt die token-geschuetzten Preis- und Trade-Webhook-Ziele sicher in `.env`, ohne Live-Trading zu aktivieren.
 - Das Frontend laedt lokale Testimporte aus `frontend/public/data/`: rekonstruierte TradingView/GBE-Trades, GBE-Monatsberichte und den letzten EOD-Report. Diese Eintraege sind als `Review offen` markiert, bis die TradingFreaks-Pflichtfelder manuell ergaenzt wurden.
 
@@ -78,6 +79,7 @@ Das Portal unterscheidet zwischen `aktualisiert geladen` und `sekundenfrisch`.
 - Provider-Anschlussstatus und Payload-Beispiele: [`docs/provider_connections.md`](docs/provider_connections.md).
 - Kompakter Anschlussplan fuer den Echtgeldbetrieb: [`docs/live_source_setup.md`](docs/live_source_setup.md).
 - Dauerhafter TradingView-Webhooks-Tunnel: [`docs/permanent_tunnel_setup.md`](docs/permanent_tunnel_setup.md).
+- Cloudflare-freie ALL-INKL/KAS-Webhook-Bridge: [`docs/kas_webhook_bridge_setup.md`](docs/kas_webhook_bridge_setup.md).
 - Git-/Remote-Setup: [`docs/git_setup.md`](docs/git_setup.md).
 - Aktueller Go-Live-Audit mit Funktionsstatus, Blockern und Erweiterungen: [`docs/functionality_audit_2026-07-01.md`](docs/functionality_audit_2026-07-01.md).
 
@@ -150,6 +152,20 @@ python3 tools/register_tradingview_public_webhooks.py --base-url https://trading
 TradingView bekommt danach nur die beiden Gateway-URLs `/tv/<token>/price`
 und `/tv/<token>/trade`. Die komplette lokale API wird nicht als Public-URL
 registriert.
+
+Cloudflare-freier KAS-Pfad:
+
+```bash
+python3 tools/register_tradingview_public_webhooks.py \
+  --base-url https://wertbegleiter.eu/wb-bridge \
+  --kas-bridge
+python3 tools/pull_kas_webhook_bridge.py --interval-seconds 3
+```
+
+Voraussetzung ist, dass `deploy/kas_webhook_bridge` auf dem KAS-Webspace
+deployt und `KAS_WEBHOOK_BRIDGE_EVENTS_URL` in `.env` gesetzt ist. Der Puller
+holt gespeicherte TradingView-Events ab, schreibt Preis-/Order-Heartbeats und
+uebernimmt Trade-Open/-Close-Events in den lokalen Journal-Store.
 
 Infrastruktur-Readiness pruefen:
 

@@ -146,6 +146,9 @@ Wirtschaftskalender live angebunden ist.
 
 - Weiterhin temporaerer Quick-Tunnel fuer Tests, aber keine stabile URL fuer
   TradingView.
+- ALL-INKL/KAS Webhook Bridge ueber `deploy/kas_webhook_bridge`, wenn die
+  Domain bei KAS bleiben soll und keine Nameserver-Umstellung gewuenscht ist.
+  Setup: `docs/kas_webhook_bridge_setup.md`.
 - Bezahlter/registrierter Tunnel-Anbieter mit reservierter Domain, z. B. ngrok
   Reserved Domain.
 - Eigener kleiner HTTPS-Bridge-Server, der nur `/tv/<token>/price` und

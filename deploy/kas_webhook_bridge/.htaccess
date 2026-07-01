@@ -1,0 +1,13 @@
+Options -Indexes
+RewriteEngine On
+
+RewriteRule ^health/?$ index.php?health=1 [QSA,L]
+RewriteRule ^tv/([^/]+)/([^/]+)/?$ index.php?token=$1&kind=$2 [QSA,L]
+
+<Files "config.php">
+  Require all denied
+</Files>
+
+<IfModule mod_rewrite.c>
+  RewriteRule ^storage/ - [F,L]
+</IfModule>

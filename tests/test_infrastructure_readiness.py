@@ -2,11 +2,13 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
 from check_infrastructure_readiness import (
     cloudflare_auth_status,
+    infrastructure_payload,
     mask_remote_url,
     public_health_url_from_webhook,
 )
@@ -32,6 +34,36 @@ class InfrastructureReadinessTests(unittest.TestCase):
         self.assertEqual(status["status"], "login_required")
         self.assertFalse(status["origin_cert_present"])
         self.assertTrue(status["information_only"])
+
+    def test_public_health_failure_blocks_readiness_when_requested(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = Path(tmp) / ".env"
+            env_file.write_text(
+                "\n".join(
+                    [
+                        "TRADINGVIEW_WEBHOOK_LOCAL_PRICE_URL=http://127.0.0.1:8000/api/live-bridge/ingest",
+                        "TRADINGVIEW_WEBHOOK_LOCAL_TRADE_URL=http://127.0.0.1:8000/api/trade-events/capture",
+                        "TRADINGVIEW_WEBHOOK_TOKEN=abcdefghijklmnopqrstuvwxyz123456",
+                        "TRADINGVIEW_WEBHOOK_PUBLIC_PRICE_URL=https://127.0.0.1.invalid/tv/abcdefghijklmnopqrstuvwxyz123456/price",
+                        "TRADINGVIEW_WEBHOOK_PUBLIC_TRADE_URL=https://127.0.0.1.invalid/tv/abcdefghijklmnopqrstuvwxyz123456/trade",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with patch(
+                "check_infrastructure_readiness.http_health_status",
+                return_value={
+                    "status": "unreachable",
+                    "url": "https://example.invalid/health",
+                    "message": "test failure",
+                    "information_only": True,
+                },
+            ):
+                payload = infrastructure_payload(env_file=env_file, check_public_health=True)
+
+        self.assertEqual(payload["status"], "partial")
+        self.assertIn("Public Webhook Healthcheck ist nicht erreichbar.", payload["blockers"])
 
 
 if __name__ == "__main__":

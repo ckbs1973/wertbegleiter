@@ -143,8 +143,8 @@ Sicherer TradingView-Webhook-Pfad:
 ```bash
 PYTHONPATH=src python3 -m trading_freaks.api.server
 python3 tools/run_tradingview_webhook_gateway.py
-tools/bin/cloudflared tunnel --url http://127.0.0.1:8787 --no-autoupdate
-python3 tools/register_tradingview_public_webhooks.py --base-url https://dein-tunnel.example
+tools/bin/cloudflared tunnel --config config/cloudflare/wertbegleiter-trading.yml run wertbegleiter-trading
+python3 tools/register_tradingview_public_webhooks.py --base-url https://trading-webhooks.wertbegleiter.eu
 ```
 
 TradingView bekommt danach nur die beiden Gateway-URLs `/tv/<token>/price`
@@ -160,6 +160,12 @@ python3 tools/check_infrastructure_readiness.py --check-public-health
 Fuer Daily Use muss ein Git Remote gesetzt sein und der temporaere
 `trycloudflare.com`-Tunnel durch einen Named Tunnel oder eine andere feste
 HTTPS-Bridge ersetzt werden.
+
+Aktueller Named Tunnel: `wertbegleiter-trading` auf
+`trading-webhooks.wertbegleiter.eu`. Cloudflare ist vorbereitet; produktive
+Erreichbarkeit setzt voraus, dass die Nameserver von `wertbegleiter.eu` beim
+Domain-Anbieter auf `cortney.ns.cloudflare.com` und
+`glen.ns.cloudflare.com` umgestellt sind.
 
 Beispiel fuer einen externen Preis-Heartbeat:
 

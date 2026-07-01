@@ -169,6 +169,8 @@ def infrastructure_payload(
         blockers.append("Dauerhafter Cloudflare Named Tunnel ist noch nicht authentifiziert.")
     if tradingview["status"] != "ready_for_tradingview":
         blockers.append("TradingView Public Webhooks sind noch nicht bereit.")
+    if check_public_health and public_health["status"] != "ok":
+        blockers.append("Public Webhook Healthcheck ist nicht erreichbar.")
 
     return {
         "status": "ready" if not blockers else "partial",

@@ -1,0 +1,7 @@
+tunnel: 6daabb6d-4a86-4906-8d84-9da4e4d51020
+credentials-file: /Users/christiankoronna/.cloudflared/6daabb6d-4a86-4906-8d84-9da4e4d51020.json
+
+ingress:
+  - hostname: trading-webhooks.wertbegleiter.eu
+    service: http://127.0.0.1:8787
+  - service: http_status:404
